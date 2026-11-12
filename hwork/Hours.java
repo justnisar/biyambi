@@ -136,85 +136,182 @@ public class Hours implements hapi.Hours {
 
     @Override
     public List<String> searchByNamePrefix(String prefix) {
-        throw new UnsupportedOperationException("TODO: Level 2");
+        return employeeMap.values().stream()
+                .filter(e -> e.name.startsWith(prefix))
+                .sorted(Comparator.comparing((Employee e) -> e.name).thenComparing(e -> e.id))
+                .map(e -> e.name + "(" + e.id + ")")
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<String> topKByHours(int k) {
-        throw new UnsupportedOperationException("TODO: Level 2");
+        return employeeMap.values().stream()
+                .sorted(Comparator.comparingInt((Employee e) -> getTotalHours(e.id)).reversed().thenComparing(e -> e.id))
+                .limit(k)
+                .map(e -> e.id + "(" + getTotalHours(e.id) + ")")
+                .collect(Collectors.toList());
     }
 
     @Override
     public int totalHours() {
-        throw new UnsupportedOperationException("TODO: Level 2");
+        return employeeMap.values().stream()
+                .mapToInt(e -> getTotalHours(e.id))
+                .sum();
     }
 
     @Override
     public int averageHours() {
-        throw new UnsupportedOperationException("TODO: Level 2");
+        return (int)employeeMap.values().stream()
+                .mapToInt(e -> getTotalHours(e.id))
+                .average().orElse(0);
     }
 
     @Override
     public Integer hoursInRange(String id, int start, int end) {
-        throw new UnsupportedOperationException("TODO: Level 2");
+        if(!employeeMap.containsKey(id)){
+            return null;
+        }
+        Employee employee = employeeMap.get(id);
+        int result = 0;
+        for(Shift shift : employee.shifts){
+             int s = Math.max(start, shift.in);
+             int e = Math.min(end, shift.out == null ? end : shift.out);
+             if(e - s > 0){
+                 result += e - s;
+             }
+        }
+        return result;
     }
 
     // ---------------- Level 3: time-state, overtime & pay (suggested: 25 min) ----------------
 
     @Override
     public Integer hoursAt(String id, int timestamp) {
-        throw new UnsupportedOperationException("TODO: Level 3");
+        return hoursInRange(id, Integer.MIN_VALUE, timestamp);
     }
 
     @Override
     public int totalHoursAt(int timestamp) {
-        throw new UnsupportedOperationException("TODO: Level 3");
+        return employeeMap.values().stream()
+                .mapToInt(e -> hoursAt(e.id, timestamp))
+                .sum();
     }
 
     @Override
     public Integer overtimeHours(String id, int start, int end, int threshold) {
-        throw new UnsupportedOperationException("TODO: Level 3");
+        /*
+        if(!employeeMap.containsKey(id)){
+            return null;
+        }
+        Employee employee = employeeMap.get(id);
+        int result = 0;
+        for(Shift shift : employee.shifts){
+            int s = Math.max(start, shift.in);
+            int e = Math.min(end, shift.out == null ? end : shift.out);
+            if(e - s > 0){
+                int hours = e - s;
+                result += Math.max(hours - threshold, 0);
+            }
+        }
+        return result;
+        */
+        Integer hours = hoursInRange(id, start, end);
+        if(hours == null){
+            return null;
+        }
+        return Math.max(0, hours - threshold);
     }
 
     @Override
     public Integer payForPeriod(String id, int start, int end, int threshold) {
-        throw new UnsupportedOperationException("TODO: Level 3");
+        Integer hours = hoursInRange(id, start, end);
+        if(hours == null){
+            return null;
+        }
+        Employee employee = employeeMap.get(id);
+        Integer overtime = overtimeHours(id, start, end, threshold);
+        int result = 0;
+        int regularHours = Math.min(hours, threshold);
+        result += employee.hourlyRate * regularHours;
+        result += (overtime * employee.hourlyRate * 3)/2;
+        return result;
     }
 
     // ---------------- Level 4: statistics, reports & at-time ranking (suggested: 30 min) ----------------
 
     @Override
     public List<String> shiftHistory(String id) {
-        throw new UnsupportedOperationException("TODO: Level 4");
+        if(!employeeMap.containsKey(id)){
+            return new ArrayList<>();
+        }
+        Employee employee = employeeMap.get(id);
+        List<String> result = new ArrayList<>();
+        for(Shift shift : employee.shifts){
+            result.add(shift.in + ":" + "CLOCK_IN");
+            if(shift.out != null){
+                result.add(shift.out + ":" + "CLOCK_OUT");
+            }
+        }
+        return result;
     }
 
     @Override
     public Integer shiftCount(String id) {
-        throw new UnsupportedOperationException("TODO: Level 4");
+        if(!employeeMap.containsKey(id)){
+            return null;
+        }
+        Employee employee = employeeMap.get(id);
+        return employee.shifts.size();
     }
 
     @Override
     public Integer longestShift(String id) {
-        throw new UnsupportedOperationException("TODO: Level 4");
+        if(!employeeMap.containsKey(id)){
+            return null;
+        }
+        Employee employee = employeeMap.get(id);
+        return (int)employee.shifts.stream()
+                .filter(s -> s.out != null)
+                .mapToInt(s -> s.out - s.in)
+                .max().orElse(0);
     }
 
     @Override
     public Integer averageShiftDuration(String id) {
-        throw new UnsupportedOperationException("TODO: Level 4");
+        if(!employeeMap.containsKey(id)){
+            return null;
+        }
+        Employee employee = employeeMap.get(id);
+        return (int)employee.shifts.stream()
+                .filter(s -> s.out != null)
+                .mapToInt(s -> s.out - s.in)
+                .average().orElse(0);
     }
 
     @Override
     public List<String> overtimeReport(int start, int end, int threshold) {
-        throw new UnsupportedOperationException("TODO: Level 4");
+        return employeeMap.values().stream()
+                .filter(e -> overtimeHours(e.id, start, end, threshold) != 0)
+                .sorted(Comparator.comparingInt((Employee e) -> overtimeHours(e.id, start, end, threshold)).reversed().thenComparing(e -> e.id) )
+                .map(e -> e.id + "(" + overtimeHours(e.id, start, end, threshold) + ")")
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<String> payrollByPeriod(int start, int end, int threshold) {
-        throw new UnsupportedOperationException("TODO: Level 4");
+        return employeeMap.values().stream()
+                .filter(e -> payForPeriod(e.id, start, end, threshold) != 0)
+                .sorted(Comparator.comparingInt((Employee e) -> payForPeriod(e.id, start, end, threshold)).reversed().thenComparing(e -> e.id))
+                .map(e -> e.id + "(" + payForPeriod(e.id, start, end, threshold) + ")")
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<String> topKByHoursAt(int k, int timestamp) {
-        throw new UnsupportedOperationException("TODO: Level 4");
+        return employeeMap.values().stream()
+                .sorted(Comparator.comparingInt((Employee e) -> hoursAt(e.id, timestamp)).reversed().thenComparing(e -> e.id))
+                .limit(k)
+                .map(e -> e.id + "(" + hoursAt(e.id, timestamp) + ")")
+                .collect(Collectors.toList());
     }
 }
